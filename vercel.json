@@ -3,13 +3,5 @@
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
-  },
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "NEXT_PUBLIC_ADMIN_PHONE": "@admin_phone",
-    "MISTA_API_KEY": "@mista_api_key",
-    "MISTA_SENDER_ID": "@mista_sender_id",
-    "NEXT_PUBLIC_WEBSITE_URL": "@website_url"
   }
 }
