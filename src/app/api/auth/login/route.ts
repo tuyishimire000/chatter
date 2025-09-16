@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     if (error || !profile) {
       console.log('Phone number not found in database')
       return NextResponse.json(
-        { error: 'Phone number not found' },
+        { error: 'Phone number not found. Only numbers that Blacky has can access this chat.' },
         { status: 404 }
       )
     }
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
       profile: {
         id: profile.id,
         phone_number: profile.phone_number,
+        name: profile.name,
         created_at: profile.created_at
       }
     })

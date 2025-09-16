@@ -6,30 +6,25 @@ interface MistaSMSResponse {
 
 export async function sendSMS(phoneNumber: string, message: string): Promise<MistaSMSResponse> {
   try {
-    const apiKey = process.env.MISTA_API_KEY
-    if (!apiKey) {
-      return { success: false, error: 'Mista API key not configured' }
-    }
-
-    const response = await fetch('https://api.mista.io/sms', {
+    console.log('Sending SMS via API route - v2')
+    // For client-side, we need to make an API call to the server
+    const response = await fetch('/api/send-sms', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        to: phoneNumber,
-        message: message,
-        from: process.env.MISTA_SENDER_ID || 'LuxuryChat'
+        phoneNumber,
+        message
       })
     })
 
     if (!response.ok) {
-      throw new Error(`Mista API error: ${response.status}`)
+      throw new Error(`SMS API error: ${response.status}`)
     }
 
     const data = await response.json()
-    return { success: true, message_id: data.message_id }
+    return data
   } catch (error) {
     console.error('SMS sending failed:', error)
     return { 
@@ -40,5 +35,5 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<Mis
 }
 
 export function formatSMSMessage(content: string, websiteUrl: string): string {
-  return `${content}\n\nReply at: ${websiteUrl}`
+  return `Blacky: ${content}\n\nThis is the only way to reach me. Reply at: ${websiteUrl}\n\nEnter your MTN number to chat with me.`
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,63 +8,34 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Label } from '@/components/ui/label'
-import { MessageCircle, Send, LogOut, Users, MessageSquare, Phone } from 'lucide-react'
+import { MessageCircle, Send, LogOut, Users, MessageSquare, Phone, Circle } from 'lucide-react'
 import { supabase, Message, Profile } from '@/lib/supabase'
 import { sendSMS, formatSMSMessage } from '@/lib/mista-api'
+import { useRealtimeAdmin } from '@/hooks/useRealtimeAdmin'
 
 interface UserWithMessages extends Profile {
   messages: Message[]
   unreadCount: number
+  isOnline?: boolean
+  isTyping?: boolean
 }
 
 export default function AdminPage() {
-  const [users, setUsers] = useState<UserWithMessages[]>([])
   const [selectedUser, setSelectedUser] = useState<UserWithMessages | null>(null)
   const [newMessage, setNewMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [messageType, setMessageType] = useState<'internal' | 'sms'>('internal')
   const router = useRouter()
 
-  const fetchUsers = useCallback(async () => {
-    try {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
+  // Use real-time admin
+  const { users, isLoading, isConnected, sendMessage } = useRealtimeAdmin()
 
-      if (profiles) {
-        const usersWithMessages = await Promise.all(
-          profiles.map(async (profile) => {
-            const { data: messages } = await supabase
-              .from('messages')
-              .select('*')
-              .eq('user_id', profile.id)
-              .order('created_at', { ascending: false })
-
-            const unreadCount = messages?.filter(
-              (msg) => msg.sender === 'user' && !msg.read_at
-            ).length || 0
-
-            return {
-              ...profile,
-              messages: messages || [],
-              unreadCount
-            }
-          })
-        )
-
-        setUsers(usersWithMessages)
-        if (usersWithMessages.length > 0 && !selectedUser) {
-          setSelectedUser(usersWithMessages[0])
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error)
-    } finally {
-      setIsLoading(false)
+  // Set selected user when users are loaded
+  useEffect(() => {
+    if (users.length > 0 && !selectedUser) {
+      setSelectedUser(users[0])
     }
-  }, [selectedUser])
+  }, [users, selectedUser])
 
   useEffect(() => {
     // Check if user is admin
@@ -73,9 +44,7 @@ export default function AdminPage() {
       router.push('/login')
       return
     }
-    
-    fetchUsers()
-  }, [router, fetchUsers])
+  }, [router])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -103,11 +72,7 @@ export default function AdminPage() {
           messages: [data, ...prev.messages]
         } : null)
 
-        setUsers(prev => prev.map(user => 
-          user.id === selectedUser.id 
-            ? { ...user, messages: [data, ...user.messages] }
-            : user
-        ))
+        // Users will be updated by polling
       } else {
         // Send SMS
         const smsMessage = formatSMSMessage(
@@ -117,33 +82,30 @@ export default function AdminPage() {
 
         const smsResult = await sendSMS(selectedUser.phone_number, smsMessage)
         
-        if (smsResult.success) {
-          // Also store as internal message for record keeping
-          const { data, error } = await supabase
-            .from('messages')
-            .insert({
-              user_id: selectedUser.id,
-              sender: 'admin',
-              content: `[SMS] ${newMessage.trim()}`
-            })
-            .select()
-            .single()
+        // Always store as internal message for record keeping
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            user_id: selectedUser.id,
+            sender: 'admin',
+            content: smsResult.success ? `[SMS] ${newMessage.trim()}` : `[SMS Failed] ${newMessage.trim()}`
+          })
+          .select()
+          .single()
 
-          if (error) throw error
+        if (error) throw error
 
-          // Update local state
-          setSelectedUser(prev => prev ? {
-            ...prev,
-            messages: [data, ...prev.messages]
-          } : null)
+        // Update local state
+        setSelectedUser(prev => prev ? {
+          ...prev,
+          messages: [data, ...prev.messages]
+        } : null)
 
-          setUsers(prev => prev.map(user => 
-            user.id === selectedUser.id 
-              ? { ...user, messages: [data, ...user.messages] }
-              : user
-          ))
-        } else {
-          throw new Error(smsResult.error || 'SMS sending failed')
+        // Users will be updated by polling
+
+        // Show user feedback about SMS status
+        if (!smsResult.success) {
+          alert(`Message saved as internal. SMS not sent: ${smsResult.error}`)
         }
       }
 
@@ -180,8 +142,8 @@ export default function AdminPage() {
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-light text-slate-800">Admin Dashboard</h1>
-              <p className="text-sm text-slate-600">{users.length} user{users.length !== 1 ? 's' : ''}</p>
+              <h1 className="text-xl font-light text-slate-800">Blacky Admin</h1>
+              <p className="text-sm text-slate-600">{users.length} conversation{users.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
           <Button
@@ -201,8 +163,8 @@ export default function AdminPage() {
           {/* Users List */}
           <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle className="text-lg font-medium text-slate-800">Users</CardTitle>
-              <CardDescription>Select a user to view messages</CardDescription>
+              <CardTitle className="text-lg font-medium text-slate-800">Conversations</CardTitle>
+              <CardDescription>Select a conversation to view messages</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2 max-h-96 overflow-y-auto">
               {users.map((user) => (
@@ -222,12 +184,18 @@ export default function AdminPage() {
                           {user.phone_number.slice(-2)}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
-                        <p className="font-medium text-slate-800">{user.phone_number}</p>
-                        <p className="text-xs text-slate-500">
-                          {user.messages.length} message{user.messages.length !== 1 ? 's' : ''}
-                        </p>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium text-slate-800">{user.name}</p>
+                        {user.isOnline && (
+                          <Circle className="w-2 h-2 fill-green-500 text-green-500" />
+                        )}
                       </div>
+                      <p className="text-xs text-slate-500">{user.phone_number}</p>
+                      {user.isTyping && (
+                        <p className="text-xs text-blue-500 italic">typing...</p>
+                      )}
+                    </div>
                     </div>
                     {user.unreadCount > 0 && (
                       <Badge variant="destructive" className="text-xs">
@@ -245,14 +213,14 @@ export default function AdminPage() {
             {selectedUser ? (
               <>
                 <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-medium text-slate-800">
-                      Conversation with {selectedUser.phone_number}
-                    </CardTitle>
-                    <CardDescription>
-                      {selectedUser.messages.length} message{selectedUser.messages.length !== 1 ? 's' : ''}
-                    </CardDescription>
-                  </CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-lg font-medium text-slate-800">
+                    Chat with {selectedUser.name}
+                  </CardTitle>
+                  <CardDescription>
+                    {selectedUser.messages.length} message{selectedUser.messages.length !== 1 ? 's' : ''} • Reply within 24 hours
+                  </CardDescription>
+                </CardHeader>
                   <CardContent className="space-y-4 max-h-96 overflow-y-auto">
                     {selectedUser.messages.length === 0 ? (
                       <div className="text-center py-8 text-slate-500">
@@ -274,7 +242,9 @@ export default function AdminPage() {
                                   : 'bg-slate-100 text-slate-800'
                               }`}
                             >
-                              <p className="text-sm">{message.content}</p>
+                              <p className="text-sm">
+                                {message.sender === 'admin' ? `Blacky: ${message.content}` : `${selectedUser.name}: ${message.content}`}
+                              </p>
                               <p className={`text-xs mt-1 ${
                                 message.sender === 'admin' ? 'text-slate-300' : 'text-slate-500'
                               }`}>
@@ -318,12 +288,19 @@ export default function AdminPage() {
                       </div>
                       
                       <Textarea
-                        placeholder={`Type your ${messageType} message...`}
+                        placeholder={`Type your ${messageType} message as Blacky...`}
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         className="min-h-[100px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400"
                         disabled={isSending}
                       />
+                      
+                      {/* Typing indicators */}
+                      {selectedUser?.isTyping && (
+                        <div className="text-sm text-slate-500 italic">
+                          {selectedUser.name} is typing...
+                        </div>
+                      )}
                       
                       <div className="flex justify-end">
                         <Button
@@ -339,7 +316,7 @@ export default function AdminPage() {
                           ) : (
                             <>
                               <Send className="w-4 h-4 mr-2" />
-                              Send {messageType === 'sms' ? 'SMS' : 'Message'}
+                              Send as Blacky
                             </>
                           )}
                         </Button>

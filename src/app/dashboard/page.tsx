@@ -1,84 +1,62 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { MessageCircle, Send, LogOut } from 'lucide-react'
 import { supabase, Message } from '@/lib/supabase'
+import { useRealtimeMessaging } from '@/hooks/useRealtimeMessaging'
 
 export default function DashboardPage() {
-  const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [userPhone, setUserPhone] = useState('')
+  const [userName, setUserName] = useState('')
+  const [userId, setUserId] = useState('')
+  const [isTyping, setIsTyping] = useState(false)
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
+
+  // Use real-time messaging
+  const { messages, isLoading, isConnected, sendMessage } = useRealtimeMessaging(userId)
 
   useEffect(() => {
     // Check if user is logged in
     const phone = localStorage.getItem('user_phone')
-    if (!phone) {
+    const name = localStorage.getItem('user_name')
+    const id = localStorage.getItem('user_id')
+    
+    if (!phone || !id) {
       router.push('/login')
       return
     }
     
     setUserPhone(phone)
-    fetchMessages(phone)
+    setUserName(name || '')
+    setUserId(id)
   }, [router])
 
-  const fetchMessages = async (phone: string) => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone_number', phone)
-        .single()
-
-      if (profile) {
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('user_id', profile.id)
-          .order('created_at', { ascending: true })
-
-        setMessages(messages || [])
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error)
-    } finally {
-      setIsLoading(false)
-    }
+  // Handle typing
+  const handleTyping = (value: string) => {
+    setNewMessage(value)
   }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newMessage.trim() || !userPhone) return
+    if (!newMessage.trim()) return
 
     setIsSending(true)
+    setIsTyping(false)
+    
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('phone_number', userPhone)
-        .single()
-
-      if (profile) {
-        const { data, error } = await supabase
-          .from('messages')
-          .insert({
-            user_id: profile.id,
-            sender: 'user',
-            content: newMessage.trim()
-          })
-          .select()
-          .single()
-
-        if (error) throw error
-
-        setMessages(prev => [...prev, data])
+      const result = await sendMessage(newMessage.trim(), 'user')
+      
+      if (result?.success) {
         setNewMessage('')
+      } else {
+        console.error('Error sending message:', result?.error)
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -89,6 +67,7 @@ export default function DashboardPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('user_phone')
+    localStorage.removeItem('user_name')
     localStorage.removeItem('user_id')
     router.push('/login')
   }
@@ -111,8 +90,14 @@ export default function DashboardPage() {
               <MessageCircle className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-light text-slate-800">Messages</h1>
-              <p className="text-sm text-slate-600">{userPhone}</p>
+              <h1 className="text-xl font-light text-slate-800">Chat with Blacky</h1>
+              <p className="text-sm text-slate-600">{userName} • {userPhone}</p>
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-xs text-slate-500">
+                  {isConnected ? 'Connected' : 'Connecting...'}
+                </span>
+              </div>
             </div>
           </div>
           <Button
@@ -131,38 +116,41 @@ export default function DashboardPage() {
         {/* Messages */}
         <Card className="mb-6 shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-medium text-slate-800">Conversation</CardTitle>
+            <CardTitle className="text-lg font-medium text-slate-800">Your Conversation</CardTitle>
             <CardDescription>
-              {messages.length} message{messages.length !== 1 ? 's' : ''}
+              {messages.length} message{messages.length !== 1 ? 's' : ''} • Blacky replies within 24 hours
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 max-h-96 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <MessageCircle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <p>No messages yet. Start a conversation!</p>
+                <p>No messages yet. Send Blacky a message!</p>
+                <p className="text-xs mt-2">He replies within 24 hours</p>
               </div>
             ) : (
               messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
                   <div
-                    className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
-                      message.sender === 'user'
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-slate-100 text-slate-800'
-                    }`}
+                    key={message.id}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-1 ${
-                      message.sender === 'user' ? 'text-slate-300' : 'text-slate-500'
-                    }`}>
-                      {new Date(message.created_at).toLocaleTimeString()}
-                    </p>
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${
+                        message.sender === 'user'
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-slate-100 text-slate-800'
+                      }`}
+                    >
+                      <p className="text-sm">
+                        {message.sender === 'admin' ? `Blacky: ${message.content}` : `${userName}: ${message.content}`}
+                      </p>
+                      <p className={`text-xs mt-1 ${
+                        message.sender === 'user' ? 'text-slate-300' : 'text-slate-500'
+                      }`}>
+                        {new Date(message.created_at).toLocaleTimeString()}
+                      </p>
+                    </div>
                   </div>
-                </div>
               ))
             )}
           </CardContent>
@@ -173,12 +161,13 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <form onSubmit={handleSendMessage} className="space-y-4">
               <Textarea
-                placeholder="Type your message..."
+                placeholder="Type your message to Blacky..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={(e) => handleTyping(e.target.value)}
                 className="min-h-[100px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400"
                 disabled={isSending}
               />
+              
               <div className="flex justify-end">
                 <Button
                   type="submit"
@@ -193,7 +182,7 @@ export default function DashboardPage() {
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Send Message
+                      Send to Blacky
                     </>
                   )}
                 </Button>

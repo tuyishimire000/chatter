@@ -28,6 +28,8 @@ export async function GET() {
       .select('*')
       .limit(10)
 
+    console.log('Profiles query result:', { profiles, profilesError })
+
     if (profilesError) {
       console.error('Profiles query error:', profilesError)
       return NextResponse.json({

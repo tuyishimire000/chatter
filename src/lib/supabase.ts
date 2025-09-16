@@ -13,6 +13,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 export interface Profile {
   id: string
   phone_number: string
+  name: string
   created_at: string
 }
 
@@ -22,6 +23,16 @@ export interface Message {
   sender: 'user' | 'admin'
   content: string
   created_at: string
+}
+
+export interface Presence {
+  id: string
+  user_id: string
+  is_online: boolean
+  last_seen: string
+  is_typing: boolean
+  typing_for_user_id?: string
+  updated_at: string
 }
 
 export interface Database {

@@ -5,6 +5,7 @@ ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret';
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   phone_number TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -17,9 +18,21 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create presence table for tracking user activity
+CREATE TABLE IF NOT EXISTS presence (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  is_online BOOLEAN DEFAULT false,
+  last_seen TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  is_typing BOOLEAN DEFAULT false,
+  typing_for_user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable RLS
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE presence ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for profiles
 -- Users can only read their own profile
@@ -46,6 +59,26 @@ CREATE POLICY "Admin can view all messages" ON messages
 -- Admin can insert messages for any user
 CREATE POLICY "Admin can insert messages" ON messages
   FOR INSERT WITH CHECK (current_setting('app.current_user_phone', true) = current_setting('app.admin_phone', true));
+
+-- RLS Policies for presence
+CREATE POLICY "Users can manage own presence" ON presence
+  FOR ALL USING (user_id IN (
+    SELECT id FROM profiles WHERE phone_number = current_setting('app.current_user_phone', true)
+  ));
+
+CREATE POLICY "Admin can view all presence" ON presence
+  FOR SELECT USING (current_setting('app.current_user_phone', true) = current_setting('app.admin_phone', true));
+
+-- TEMPORARY: Permissive policies for testing real-time features
+-- Remove these after testing is complete
+CREATE POLICY "Allow all reads for testing" ON profiles
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow all reads for testing" ON messages
+  FOR SELECT USING (true);
+
+CREATE POLICY "Allow all reads for testing" ON presence
+  FOR SELECT USING (true);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id);
