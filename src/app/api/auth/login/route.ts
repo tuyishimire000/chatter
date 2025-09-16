@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,13 +12,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // For now, return a mock response to test the API route
+    console.log('Checking phone number:', phoneNumber)
+
+    // Check if phone number exists in profiles table
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('phone_number', phoneNumber)
+      .single()
+
+    console.log('Database response:', { profile, error })
+
+    if (error || !profile) {
+      console.log('Phone number not found in database')
+      return NextResponse.json(
+        { error: 'Phone number not found' },
+        { status: 404 }
+      )
+    }
+
+    console.log('Phone number found, returning profile:', profile)
+
     return NextResponse.json({
       success: true,
       profile: {
-        id: 'mock-id',
-        phone_number: phoneNumber,
-        created_at: new Date().toISOString()
+        id: profile.id,
+        phone_number: profile.phone_number,
+        created_at: profile.created_at
       }
     })
   } catch (error) {
