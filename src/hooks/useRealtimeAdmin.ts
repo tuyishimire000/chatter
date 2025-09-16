@@ -30,6 +30,14 @@ export function useRealtimeAdmin() {
         .order('created_at', { ascending: false })
 
       if (profiles) {
+        // Get online status
+        const { data: presence } = await supabase
+          .from('presence')
+          .select('user_id, is_online')
+          .eq('is_online', true)
+
+        const onlineUsers = new Set(presence?.map(p => p.user_id) || [])
+
         const usersWithMessages = await Promise.all(
           profiles.map(async (profile) => {
             const { data: messages } = await supabase
@@ -46,7 +54,7 @@ export function useRealtimeAdmin() {
               ...profile,
               messages: messages || [],
               unreadCount,
-              isOnline: false, // Will be updated via real-time
+              isOnline: onlineUsers.has(profile.id),
               isTyping: false
             }
           })
@@ -64,6 +72,11 @@ export function useRealtimeAdmin() {
   // Set up real-time connection
   useEffect(() => {
     fetchUsers()
+
+    // Refresh online status every 10 seconds
+    const statusInterval = setInterval(() => {
+      fetchUsers()
+    }, 10000)
 
     // Create SSE connection for admin
     const userPhone = localStorage.getItem('user_phone')
@@ -142,6 +155,7 @@ export function useRealtimeAdmin() {
     }
 
     return () => {
+      clearInterval(statusInterval)
       eventSource.close()
       eventSourceRef.current = null
       setIsConnected(false)

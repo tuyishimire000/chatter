@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea'
 import { MessageCircle, Send, LogOut } from 'lucide-react'
 import { supabase, Message } from '@/lib/supabase'
-import { useRealtimeMessaging } from '@/hooks/useRealtimeMessaging'
+import { useSimplePolling } from '@/hooks/useSimplePolling'
 
 export default function DashboardPage() {
   const [newMessage, setNewMessage] = useState('')
@@ -19,8 +19,18 @@ export default function DashboardPage() {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
 
-  // Use real-time messaging
-  const { messages, isLoading, isConnected, sendMessage } = useRealtimeMessaging(userId)
+  // Use simple polling
+  const { messages, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(userId, false)
+
+  // Debug messages
+  useEffect(() => {
+    console.log('Messages state updated:', messages.length, messages)
+  }, [messages])
+
+  // Debug update trigger
+  useEffect(() => {
+    console.log('Update trigger changed:', updateTrigger)
+  }, [updateTrigger])
 
   useEffect(() => {
     // Check if user is logged in
@@ -55,6 +65,10 @@ export default function DashboardPage() {
       
       if (result?.success) {
         setNewMessage('')
+        // Force refresh after sending
+        setTimeout(() => {
+          refresh()
+        }, 500)
       } else {
         console.error('Error sending message:', result?.error)
       }
@@ -93,9 +107,9 @@ export default function DashboardPage() {
               <h1 className="text-xl font-light text-slate-800">Chat with Blacky</h1>
               <p className="text-sm text-slate-600">{userName} • {userPhone}</p>
               <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 <span className="text-xs text-slate-500">
-                  {isConnected ? 'Connected' : 'Connecting...'}
+                  Live Updates
                 </span>
               </div>
             </div>

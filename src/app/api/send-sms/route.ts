@@ -6,6 +6,9 @@ interface MistaSMSResponse {
   error?: string
 }
 
+// Store recent SMS requests to prevent duplicates
+const recentSMS = new Map<string, number>()
+
 export async function POST(request: NextRequest) {
   try {
     const { phoneNumber, message } = await request.json()
@@ -15,6 +18,29 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Phone number and message are required' },
         { status: 400 }
       )
+    }
+
+    // Create a unique key for this SMS request
+    const smsKey = `${phoneNumber}-${message}`
+    const now = Date.now()
+    
+    // Check if this exact SMS was sent recently (within 30 seconds)
+    if (recentSMS.has(smsKey) && now - recentSMS.get(smsKey)! < 30000) {
+      console.log('Duplicate SMS prevented:', smsKey)
+      return NextResponse.json({
+        success: false,
+        error: 'Duplicate SMS prevented - same message sent recently'
+      })
+    }
+    
+    // Store this SMS request
+    recentSMS.set(smsKey, now)
+    
+    // Clean up old entries (older than 5 minutes)
+    for (const [key, timestamp] of recentSMS.entries()) {
+      if (now - timestamp > 300000) {
+        recentSMS.delete(key)
+      }
     }
 
     const apiKey = process.env.MISTA_API_KEY

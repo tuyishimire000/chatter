@@ -36,6 +36,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
+    // First, mark users as offline if they haven't been active for 10 seconds
+    const tenSecondsAgo = new Date(Date.now() - 10 * 1000).toISOString()
+    
+    await supabase
+      .from('presence')
+      .update({ is_online: false })
+      .lt('updated_at', tenSecondsAgo)
+
     // Get all online users
     const { data: presence, error } = await supabase
       .from('presence')

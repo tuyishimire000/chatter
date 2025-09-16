@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { MessageCircle, Send, LogOut, Users, MessageSquare, Phone, Circle } from 'lucide-react'
 import { supabase, Message, Profile } from '@/lib/supabase'
 import { sendSMS, formatSMSMessage } from '@/lib/mista-api'
-import { useRealtimeAdmin } from '@/hooks/useRealtimeAdmin'
+import { useSimplePolling } from '@/hooks/useSimplePolling'
 
 interface UserWithMessages extends Profile {
   messages: Message[]
@@ -25,10 +25,22 @@ export default function AdminPage() {
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [messageType, setMessageType] = useState<'internal' | 'sms'>('internal')
+  const [lastSMSMessage, setLastSMSMessage] = useState('')
+  const [lastSMSTime, setLastSMSTime] = useState(0)
   const router = useRouter()
 
-  // Use real-time admin
-  const { users, isLoading, isConnected, sendMessage } = useRealtimeAdmin()
+  // Use simple polling
+  const { users, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(undefined, true)
+
+  // Debug users
+  useEffect(() => {
+    console.log('Admin users state updated:', users.length, users)
+  }, [users])
+
+  // Debug update trigger
+  useEffect(() => {
+    console.log('Admin update trigger changed:', updateTrigger)
+  }, [updateTrigger])
 
   // Set selected user when users are loaded
   useEffect(() => {
@@ -66,19 +78,37 @@ export default function AdminPage() {
 
         if (error) throw error
 
-        // Update local state
-        setSelectedUser(prev => prev ? {
-          ...prev,
-          messages: [data, ...prev.messages]
-        } : null)
-
-        // Users will be updated by polling
+        // Force refresh after sending
+        setTimeout(() => {
+          refresh()
+        }, 500)
       } else {
-        // Send SMS
+        // Send SMS with deduplication
+        const messageContent = newMessage.trim()
+        const now = Date.now()
+        
+        // Check for duplicate SMS within 10 seconds
+        if (lastSMSMessage === messageContent && now - lastSMSTime < 10000) {
+          alert('Please wait before sending the same SMS message again.')
+          setIsSending(false)
+          return
+        }
+        
+        // Check for rapid SMS sending (less than 3 seconds between any SMS)
+        if (now - lastSMSTime < 3000) {
+          alert('Please wait a moment before sending another SMS.')
+          setIsSending(false)
+          return
+        }
+        
         const smsMessage = formatSMSMessage(
-          newMessage.trim(),
+          messageContent,
           process.env.NEXT_PUBLIC_WEBSITE_URL || 'https://your-domain.vercel.app'
         )
+
+        // Update tracking variables
+        setLastSMSMessage(messageContent)
+        setLastSMSTime(now)
 
         const smsResult = await sendSMS(selectedUser.phone_number, smsMessage)
         
@@ -95,13 +125,10 @@ export default function AdminPage() {
 
         if (error) throw error
 
-        // Update local state
-        setSelectedUser(prev => prev ? {
-          ...prev,
-          messages: [data, ...prev.messages]
-        } : null)
-
-        // Users will be updated by polling
+        // Force refresh after sending
+        setTimeout(() => {
+          refresh()
+        }, 500)
 
         // Show user feedback about SMS status
         if (!smsResult.success) {
@@ -147,6 +174,14 @@ export default function AdminPage() {
             </div>
           </div>
           <Button
+            onClick={refresh}
+            variant="outline"
+            size="sm"
+            className="text-slate-600 border-slate-300 hover:bg-slate-50"
+          >
+            Refresh
+          </Button>
+          <Button
             onClick={handleLogout}
             variant="ghost"
             size="sm"
@@ -187,9 +222,12 @@ export default function AdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <p className="font-medium text-slate-800">{user.name}</p>
-                        {user.isOnline && (
-                          <Circle className="w-2 h-2 fill-green-500 text-green-500" />
-                        )}
+                        <div className="flex items-center space-x-1">
+                          <Circle className={`w-2 h-2 ${user.isOnline ? 'fill-green-500 text-green-500' : 'fill-gray-400 text-gray-400'}`} />
+                          <span className={`text-xs ${user.isOnline ? 'text-green-600' : 'text-gray-500'}`}>
+                            {user.isOnline ? 'Online' : 'Offline'}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-500">{user.phone_number}</p>
                       {user.isTyping && (
@@ -302,16 +340,21 @@ export default function AdminPage() {
                         </div>
                       )}
                       
-                      <div className="flex justify-end">
+                      <div className="flex justify-between items-center">
+                        {messageType === 'sms' && lastSMSTime > 0 && Date.now() - lastSMSTime < 3000 && (
+                          <p className="text-xs text-orange-600">
+                            Please wait {Math.ceil((3000 - (Date.now() - lastSMSTime)) / 1000)}s before sending another SMS
+                          </p>
+                        )}
                         <Button
                           type="submit"
-                          disabled={!newMessage.trim() || isSending}
-                          className="bg-slate-800 hover:bg-slate-700 text-white"
+                          disabled={!newMessage.trim() || isSending || (messageType === 'sms' && Date.now() - lastSMSTime < 3000)}
+                          className="bg-slate-800 hover:bg-slate-700 text-white disabled:opacity-50"
                         >
                           {isSending ? (
                             <>
                               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Sending...
+                              {messageType === 'sms' ? 'Sending SMS...' : 'Sending...'}
                             </>
                           ) : (
                             <>
