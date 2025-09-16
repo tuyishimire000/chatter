@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,29 +11,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if phone number exists in profiles table
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('phone_number', phoneNumber)
-      .single()
-
-    if (error || !profile) {
-      return NextResponse.json(
-        { error: 'Phone number not found' },
-        { status: 404 }
-      )
-    }
-
-    // Set session context for RLS
-    await supabase.rpc('set_current_user_phone', { phone: phoneNumber })
-
+    // For now, return a mock response to test the API route
     return NextResponse.json({
       success: true,
       profile: {
-        id: profile.id,
-        phone_number: profile.phone_number,
-        created_at: profile.created_at
+        id: 'mock-id',
+        phone_number: phoneNumber,
+        created_at: new Date().toISOString()
       }
     })
   } catch (error) {

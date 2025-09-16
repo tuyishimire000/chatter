@@ -79,8 +79,39 @@ Or connect your GitHub repo to Vercel for automatic deployments.
 ### Adding Users
 Users are automatically created when they first log in with a valid phone number. To pre-populate users:
 
+**Single User:**
 ```sql
 INSERT INTO profiles (phone_number) VALUES ('+1234567890');
+```
+
+**Multiple Users (10 sample users):**
+```sql
+INSERT INTO profiles (phone_number) VALUES 
+('+1234567890'),
+('+1234567891'),
+('+1234567892'),
+('+1234567893'),
+('+1234567894'),
+('+1234567895'),
+('+1234567896'),
+('+1234567897'),
+('+1234567898'),
+('+1234567899');
+```
+
+**Or with more realistic phone numbers:**
+```sql
+INSERT INTO profiles (phone_number) VALUES 
+('+15551234567'),
+('+15551234568'),
+('+15551234569'),
+('+15551234570'),
+('+15551234571'),
+('+15551234572'),
+('+15551234573'),
+('+15551234574'),
+('+15551234575'),
+('+15551234576');
 ```
 
 ### Admin Access
