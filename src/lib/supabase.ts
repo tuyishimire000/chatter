@@ -23,6 +23,8 @@ export interface Message {
   sender: 'user' | 'admin'
   content: string
   created_at: string
+  seen_at?: string
+  seen_by?: 'user' | 'admin'
 }
 
 export interface Presence {

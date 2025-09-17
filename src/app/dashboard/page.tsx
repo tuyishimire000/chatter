@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [isTyping, setIsTyping] = useState(false)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
+  const lastSeenMessageId = useRef<string | null>(null)
 
   // Use simple polling
   const { messages, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(userId, false)
@@ -31,6 +32,38 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log('Update trigger changed:', updateTrigger)
   }, [updateTrigger])
+
+  // Mark messages as seen when viewed
+  const markMessagesAsSeen = async (messageIds: string[]) => {
+    try {
+      await fetch('/api/messages/seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageIds,
+          seenBy: 'user'
+        })
+      })
+    } catch (error) {
+      console.error('Error marking messages as seen:', error)
+    }
+  }
+
+  // Mark admin messages as read when they are viewed by user
+  useEffect(() => {
+    if (messages.length > 0 && userId) {
+      // Get admin messages that haven't been read by user
+      const unreadAdminMessages = messages.filter(
+        message => message.sender === 'admin' && 
+        (!message.seen_at || message.seen_by !== 'user')
+      )
+      
+      if (unreadAdminMessages.length > 0) {
+        const messageIds = unreadAdminMessages.map(msg => msg.id)
+        markMessagesAsSeen(messageIds)
+      }
+    }
+  }, [messages, userId])
 
   useEffect(() => {
     // Check if user is logged in

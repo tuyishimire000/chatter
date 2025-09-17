@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,6 +28,7 @@ export default function AdminPage() {
   const [lastSMSMessage, setLastSMSMessage] = useState('')
   const [lastSMSTime, setLastSMSTime] = useState(0)
   const router = useRouter()
+  const lastSeenMessageId = useRef<string | null>(null)
 
   // Use simple polling
   const { users, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(undefined, true)
@@ -41,6 +42,38 @@ export default function AdminPage() {
   useEffect(() => {
     console.log('Admin update trigger changed:', updateTrigger)
   }, [updateTrigger])
+
+  // Mark messages as seen when viewed by admin
+  const markMessagesAsSeen = async (messageIds: string[]) => {
+    try {
+      await fetch('/api/messages/seen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageIds,
+          seenBy: 'admin'
+        })
+      })
+    } catch (error) {
+      console.error('Error marking messages as seen:', error)
+    }
+  }
+
+  // Mark user messages as read when they are viewed by admin
+  useEffect(() => {
+    if (selectedUser && selectedUser.messages.length > 0) {
+      // Get user messages that haven't been read by admin
+      const unreadUserMessages = selectedUser.messages.filter(
+        message => message.sender === 'user' && 
+        (!message.seen_at || message.seen_by !== 'admin')
+      )
+      
+      if (unreadUserMessages.length > 0) {
+        const messageIds = unreadUserMessages.map(msg => msg.id)
+        markMessagesAsSeen(messageIds)
+      }
+    }
+  }, [selectedUser])
 
   // Set selected user when users are loaded
   useEffect(() => {
@@ -283,11 +316,19 @@ export default function AdminPage() {
                               <p className="text-sm">
                                 {message.sender === 'admin' ? `Blacky: ${message.content}` : `${selectedUser.name}: ${message.content}`}
                               </p>
-                              <p className={`text-xs mt-1 ${
+                              <div className={`flex items-center justify-between mt-1 ${
                                 message.sender === 'admin' ? 'text-slate-300' : 'text-slate-500'
                               }`}>
-                                {new Date(message.created_at).toLocaleTimeString()}
-                              </p>
+                                <span className="text-xs">
+                                  {new Date(message.created_at).toLocaleTimeString()}
+                                </span>
+                                {message.sender === 'user' && message.seen_at && message.seen_by === 'admin' && (
+                                  <span className="text-xs text-green-500">✓ Read</span>
+                                )}
+                                {message.sender === 'admin' && message.seen_at && message.seen_by === 'user' && (
+                                  <span className="text-xs text-blue-500">✓ Read by User</span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ))

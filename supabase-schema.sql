@@ -15,7 +15,9 @@ CREATE TABLE IF NOT EXISTS messages (
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   sender TEXT NOT NULL CHECK (sender IN ('user', 'admin')),
   content TEXT NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  seen_at TIMESTAMP WITH TIME ZONE,
+  seen_by TEXT CHECK (seen_by IN ('user', 'admin'))
 );
 
 -- Create presence table for tracking user activity
