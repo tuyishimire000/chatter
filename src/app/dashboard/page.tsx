@@ -8,20 +8,21 @@ import { Textarea } from '@/components/ui/textarea'
 import { MessageCircle, Send, LogOut } from 'lucide-react'
 import { supabase, Message } from '@/lib/supabase'
 import { useSimplePolling } from '@/hooks/useSimplePolling'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function DashboardPage() {
   const [newMessage, setNewMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [userPhone, setUserPhone] = useState('')
-  const [userName, setUserName] = useState('')
-  const [userId, setUserId] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const router = useRouter()
   const lastSeenMessageId = useRef<string | null>(null)
 
+  // Use authentication hook
+  const { user, isAdmin, isLoading: authLoading, isAuthenticated, logout } = useAuth()
+
   // Use simple polling
-  const { messages, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(userId, false)
+  const { messages, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(user?.id || '', false)
 
   // Debug messages
   useEffect(() => {
@@ -51,7 +52,7 @@ export default function DashboardPage() {
 
   // Mark admin messages as read when they are viewed by user
   useEffect(() => {
-    if (messages.length > 0 && userId) {
+    if (messages.length > 0 && user?.id) {
       // Get admin messages that haven't been read by user
       const unreadAdminMessages = messages.filter(
         message => message.sender === 'admin' && 
@@ -63,23 +64,20 @@ export default function DashboardPage() {
         markMessagesAsSeen(messageIds)
       }
     }
-  }, [messages, userId])
+  }, [messages, user?.id])
 
+  // Redirect if not authenticated or if admin
   useEffect(() => {
-    // Check if user is logged in
-    const phone = localStorage.getItem('user_phone')
-    const name = localStorage.getItem('user_name')
-    const id = localStorage.getItem('user_id')
-    
-    if (!phone || !id) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login')
       return
     }
     
-    setUserPhone(phone)
-    setUserName(name || '')
-    setUserId(id)
-  }, [router])
+    if (!authLoading && isAdmin) {
+      router.push('/admin')
+      return
+    }
+  }, [authLoading, isAuthenticated, isAdmin, router])
 
   // Handle typing
   const handleTyping = (value: string) => {
@@ -113,18 +111,19 @@ export default function DashboardPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('user_phone')
-    localStorage.removeItem('user_name')
-    localStorage.removeItem('user_id')
-    router.push('/login')
+    logout()
   }
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800"></div>
       </div>
     )
+  }
+
+  if (!isAuthenticated || !user) {
+    return null
   }
 
   return (
@@ -138,7 +137,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-xl font-light text-slate-800">Chat with Blacky</h1>
-              <p className="text-sm text-slate-600">{userName} • {userPhone}</p>
+              <p className="text-sm text-slate-600">{user.name} • {user.phone_number}</p>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
                 <span className="text-xs text-slate-500">
@@ -189,7 +188,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <p className="text-sm">
-                        {message.sender === 'admin' ? `Blacky: ${message.content}` : `${userName}: ${message.content}`}
+                        {message.sender === 'admin' ? `Blacky: ${message.content}` : `${user.name}: ${message.content}`}
                       </p>
                       <p className={`text-xs mt-1 ${
                         message.sender === 'user' ? 'text-slate-300' : 'text-slate-500'

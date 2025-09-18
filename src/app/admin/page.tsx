@@ -12,6 +12,7 @@ import { MessageCircle, Send, LogOut, Users, MessageSquare, Phone, Circle } from
 import { supabase, Message, Profile } from '@/lib/supabase'
 import { sendSMS, formatSMSMessage } from '@/lib/mista-api'
 import { useSimplePolling } from '@/hooks/useSimplePolling'
+import { useAuth } from '@/hooks/useAuth'
 
 interface UserWithMessages extends Profile {
   messages: Message[]
@@ -29,6 +30,9 @@ export default function AdminPage() {
   const [lastSMSTime, setLastSMSTime] = useState(0)
   const router = useRouter()
   const lastSeenMessageId = useRef<string | null>(null)
+
+  // Use authentication hook
+  const { user, isAdmin, isLoading: authLoading, isAuthenticated, logout } = useAuth()
 
   // Use simple polling
   const { users, isLoading, sendMessage, refresh, updateTrigger } = useSimplePolling(undefined, true)
@@ -82,14 +86,18 @@ export default function AdminPage() {
     }
   }, [users, selectedUser])
 
+  // Redirect if not authenticated or not admin
   useEffect(() => {
-    // Check if user is admin
-    const phone = localStorage.getItem('user_phone')
-    if (!phone || phone !== process.env.NEXT_PUBLIC_ADMIN_PHONE) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/login')
       return
     }
-  }, [router])
+    
+    if (!authLoading && !isAdmin) {
+      router.push('/dashboard')
+      return
+    }
+  }, [authLoading, isAuthenticated, isAdmin, router])
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -179,17 +187,19 @@ export default function AdminPage() {
   }
 
   const handleLogout = () => {
-    localStorage.removeItem('user_phone')
-    localStorage.removeItem('user_id')
-    router.push('/login')
+    logout()
   }
 
-  if (isLoading) {
+  if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800"></div>
       </div>
     )
+  }
+
+  if (!isAuthenticated || !isAdmin || !user) {
+    return null
   }
 
   return (
