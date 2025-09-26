@@ -35,5 +35,5 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<Mis
 }
 
 export function formatSMSMessage(content: string, websiteUrl: string): string {
-  return `Blacky: ${content}\n\nThis is the only way to reach me. Reply at: ${websiteUrl}\n\nEnter your MTN number to chat with me.`
+  return `Hilbert: ${content}\n\nThis is the only way to reach me. Reply at: ${websiteUrl}\n\nEnter your MTN number to chat with me.`
 }

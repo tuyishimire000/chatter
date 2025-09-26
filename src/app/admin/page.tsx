@@ -212,7 +212,7 @@ export default function AdminPage() {
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-light text-slate-800">Blacky Admin</h1>
+              <h1 className="text-xl font-light text-slate-800">Hilbert Admin</h1>
               <p className="text-sm text-slate-600">{users.length} conversation{users.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function AdminPage() {
                               }`}
                             >
                               <p className="text-sm">
-                                {message.sender === 'admin' ? `Blacky: ${message.content}` : `${selectedUser.name}: ${message.content}`}
+                                {message.sender === 'admin' ? `Hilbert: ${message.content}` : `${selectedUser.name}: ${message.content}`}
                               </p>
                               <div className={`flex items-center justify-between mt-1 ${
                                 message.sender === 'admin' ? 'text-slate-300' : 'text-slate-500'
@@ -377,7 +377,7 @@ export default function AdminPage() {
                       </div>
                       
                       <Textarea
-                        placeholder={`Type your ${messageType} message as Blacky...`}
+                        placeholder={`Type your ${messageType} message as Hilbert...`}
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         className="min-h-[100px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400"
@@ -410,7 +410,7 @@ export default function AdminPage() {
                           ) : (
                             <>
                               <Send className="w-4 h-4 mr-2" />
-                              Send as Blacky
+                              Send as Hilbert
                             </>
                           )}
                         </Button>

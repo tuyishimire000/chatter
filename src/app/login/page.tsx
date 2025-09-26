@@ -50,10 +50,10 @@ export default function LoginPage() {
       <Card className="w-full max-w-md shadow-xl border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-3xl font-light text-slate-800">
-            Welcome to Blacky Chatter
+            Welcome to Hilbert Chat
           </CardTitle>
           <CardDescription className="text-slate-600">
-            Enter your MTN number to chat with Blacky
+            Enter your MTN number to chat with Hilbert
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -72,7 +72,7 @@ export default function LoginPage() {
                 className="h-12 text-lg border-slate-200 focus:border-slate-400 focus:ring-slate-400"
               />
               <p className="text-xs text-slate-500 text-center">
-                Use country code +250 and only numbers that Blacky has
+                Use country code +250 and only numbers that Hilbert has
               </p>
             </div>
             
@@ -87,7 +87,7 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full h-12 text-lg font-medium bg-slate-800 hover:bg-slate-700 text-white transition-colors"
             >
-              {isLoading ? 'Connecting...' : 'Chat with Blacky'}
+              {isLoading ? 'Connecting...' : 'Chat with Hilbert'}
             </Button>
           </form>
         </CardContent>

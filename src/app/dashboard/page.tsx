@@ -136,7 +136,7 @@ export default function DashboardPage() {
               <MessageCircle className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-light text-slate-800">Chat with Blacky</h1>
+              <h1 className="text-xl font-light text-slate-800">Chat with Hilbert</h1>
               <p className="text-sm text-slate-600">{user.name} • {user.phone_number}</p>
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -164,14 +164,14 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-lg font-medium text-slate-800">Your Conversation</CardTitle>
             <CardDescription>
-              {messages.length} message{messages.length !== 1 ? 's' : ''} • Blacky replies within 24 hours
+              {messages.length} message{messages.length !== 1 ? 's' : ''} • Hilbert replies within 24 hours
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 max-h-96 overflow-y-auto">
             {messages.length === 0 ? (
               <div className="text-center py-8 text-slate-500">
                 <MessageCircle className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-                <p>No messages yet. Send Blacky a message!</p>
+                <p>No messages yet. Send Hilbert a message!</p>
                 <p className="text-xs mt-2">He replies within 24 hours</p>
               </div>
             ) : (
@@ -188,7 +188,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <p className="text-sm">
-                        {message.sender === 'admin' ? `Blacky: ${message.content}` : `${user.name}: ${message.content}`}
+                        {message.sender === 'admin' ? `Hilbert: ${message.content}` : `${user.name}: ${message.content}`}
                       </p>
                       <p className={`text-xs mt-1 ${
                         message.sender === 'user' ? 'text-slate-300' : 'text-slate-500'
@@ -207,7 +207,7 @@ export default function DashboardPage() {
           <CardContent className="p-6">
             <form onSubmit={handleSendMessage} className="space-y-4">
               <Textarea
-                placeholder="Type your message to Blacky..."
+                placeholder="Type your message to Hilbert..."
                 value={newMessage}
                 onChange={(e) => handleTyping(e.target.value)}
                 className="min-h-[100px] resize-none border-slate-200 focus:border-slate-400 focus:ring-slate-400"
@@ -228,7 +228,7 @@ export default function DashboardPage() {
                   ) : (
                     <>
                       <Send className="w-4 h-4 mr-2" />
-                      Send to Blacky
+                      Send to Hilbert
                     </>
                   )}
                 </Button>
